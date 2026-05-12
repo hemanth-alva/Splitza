@@ -2,17 +2,29 @@
 //  RootRouter.swift
 //  Splitza
 //
-//  Created by Antigravity on 21/04/26.
+//  Created by Antigravity on 13/05/26.
 //
 
 import Foundation
 
 public protocol RootRouting: Routing {
-    // Defines methods for routing from the Root RIB to other RIBs
+    func routeToAddExpense()
+    func routeToCreateGroup()
+    func routeToSettleUp()
 }
 
 public class RootRouter: RootRouting {
-    public init() {
-        // Initialize routing dependencies
+    public init() {}
+    
+    public func routeToAddExpense() {
+        // Handled via sheet presentation in RootView
+    }
+    
+    public func routeToCreateGroup() {
+        // Handled via sheet presentation in GroupsView
+    }
+    
+    public func routeToSettleUp() {
+        // Handled via sheet presentation in RootView
     }
 }

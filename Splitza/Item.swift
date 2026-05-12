@@ -2,17 +2,7 @@
 //  Item.swift
 //  Splitza
 //
-//  Created by Hemanth Alva R on 21/04/26.
+//  Legacy file — no longer used. Replaced by Models.swift.
 //
 
 import Foundation
-import SwiftData
-
-@Model
-final class Item {
-    var timestamp: Date
-    
-    init(timestamp: Date) {
-        self.timestamp = timestamp
-    }
-}
