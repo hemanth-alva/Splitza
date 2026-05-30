@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct CreateGroupView: View {
-    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var interactor: GroupsInteractor
     @Environment(\.dismiss) private var dismiss
     
     @State private var groupName = ""
@@ -21,15 +21,11 @@ struct CreateGroupView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Group info
                 Section {
                     HStack {
-                        // Emoji picker
                         Menu {
                             ForEach(emojiOptions, id: \.self) { emoji in
-                                Button(emoji) {
-                                    selectedEmoji = emoji
-                                }
+                                Button(emoji) { selectedEmoji = emoji }
                             }
                         } label: {
                             ZStack {
@@ -46,7 +42,6 @@ struct CreateGroupView: View {
                     }
                 }
                 
-                // Group type
                 Section("Group Type") {
                     ForEach(GroupType.allCases, id: \.self) { type in
                         Button {
@@ -68,7 +63,6 @@ struct CreateGroupView: View {
                     }
                 }
                 
-                // Members
                 Section("Add Members") {
                     ForEach(interactor.friends) { friend in
                         Button {
@@ -114,27 +108,20 @@ struct CreateGroupView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") {
-                        createGroup()
+                        withAnimation(.spring(response: 0.3)) {
+                            interactor.createGroup(
+                                name: groupName,
+                                emoji: selectedEmoji,
+                                type: selectedType,
+                                memberIds: Array(selectedFriendIds)
+                            )
+                        }
+                        dismiss()
                     }
                     .disabled(groupName.isEmpty || selectedFriendIds.isEmpty)
                     .fontWeight(.semibold)
                 }
             }
         }
-    }
-    
-    private func createGroup() {
-        var memberIds = Array(selectedFriendIds)
-        memberIds.insert(interactor.currentUser.id, at: 0)
-        
-        let group = ExpenseGroup(
-            name: groupName,
-            memberIds: memberIds,
-            type: selectedType,
-            emoji: selectedEmoji
-        )
-        
-        interactor.addGroup(group)
-        dismiss()
     }
 }

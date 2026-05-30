@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct FriendsView: View {
-    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var interactor: FriendsInteractor
     @State private var showAddFriend = false
     @State private var newFriendName = ""
     @State private var newFriendEmail = ""
@@ -17,14 +17,12 @@ struct FriendsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppSpacing.lg) {
-                    // Balance summary
                     TotalBalanceCard(
                         totalOwed: interactor.totalOwedToMe,
                         totalOwe: interactor.totalIOwe
                     )
                     .padding(.top, AppSpacing.sm)
                     
-                    // Friends list
                     VStack(alignment: .leading, spacing: AppSpacing.md) {
                         HStack {
                             SectionHeader(title: "Friends")
@@ -57,7 +55,7 @@ struct FriendsView: View {
                                     } label: {
                                         FriendRow(
                                             friend: friend,
-                                            balance: interactor.balanceWith(friendId: friend.id)
+                                            balance: interactor.balance(with: friend.id)
                                         )
                                     }
                                     .buttonStyle(.plain)
@@ -89,12 +87,7 @@ struct FriendsView: View {
                 }
                 Button("Add") {
                     if !newFriendName.isEmpty {
-                        let friend = User(
-                            name: newFriendName,
-                            email: newFriendEmail.isEmpty ? "\(newFriendName.lowercased().replacingOccurrences(of: " ", with: "."))@email.com" : newFriendEmail,
-                            avatarColor: AppColors.avatarColor(for: interactor.friends.count + 1)
-                        )
-                        interactor.addFriend(friend)
+                        interactor.addFriend(name: newFriendName, email: newFriendEmail)
                         newFriendName = ""
                         newFriendEmail = ""
                     }

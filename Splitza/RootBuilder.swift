@@ -7,20 +7,38 @@
 
 import SwiftUI
 
-public protocol RootBuildable: Buildable {
+protocol RootBuildable: Buildable {
     func build() -> RootView
 }
 
-public class RootBuilder: RootBuildable {
-    public init() {}
+class RootBuilder: RootBuildable {
+    private let dataProvider: DataProvider
     
-    public func build() -> RootView {
-        let interactor = RootInteractor()
-        let router = RootRouter()
-        
+    init(dataProvider: DataProvider = SampleDataProvider()) {
+        self.dataProvider = dataProvider
+    }
+    
+    func build() -> RootView {
+        let interactor = RootInteractor(dataProvider: dataProvider)
+        let router = RootRouter(rootInteractor: interactor)
         interactor.router = router
         
-        let view = RootView(interactor: interactor)
+        let groupsRouter = GroupsRouter(rootRouter: router)
+        let friendsRouter = FriendsRouter(rootRouter: router)
+        let activityRouter = ActivityRouter(rootRouter: router)
+        
+        let groupsInteractor = GroupsInteractor(rootInteractor: interactor, router: groupsRouter)
+        let friendsInteractor = FriendsInteractor(rootInteractor: interactor, router: friendsRouter)
+        let activityInteractor = ActivityInteractor(rootInteractor: interactor, router: activityRouter)
+        let accountInteractor = AccountInteractor(rootInteractor: interactor)
+        
+        let view = RootView(
+            interactor: interactor,
+            groupsInteractor: groupsInteractor,
+            friendsInteractor: friendsInteractor,
+            activityInteractor: activityInteractor,
+            accountInteractor: accountInteractor
+        )
         return view
     }
 }

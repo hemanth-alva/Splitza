@@ -8,30 +8,16 @@
 import SwiftUI
 
 struct GroupDetailView: View {
-    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var interactor: GroupsInteractor
     let group: ExpenseGroup
-    
-    var groupExpenses: [Expense] {
-        interactor.expenses(forGroup: group.id).sorted { $0.date > $1.date }
-    }
-    
-    var members: [User] {
-        interactor.members(of: group)
-    }
     
     var body: some View {
         ScrollView {
             VStack(spacing: AppSpacing.lg) {
-                // Group header
                 groupHeader
-                
-                // Member balances
                 memberBalancesSection
-                
-                // Actions
                 actionButtons
-                
-                // Expenses
+                simplifyDebtsSection
                 expensesSection
             }
             .padding(.bottom, 40)
@@ -52,8 +38,10 @@ struct GroupDetailView: View {
                 .font(AppTypography.title2)
                 .foregroundStyle(AppColors.primaryText)
             
-            let balance = interactor.groupBalance(groupId: group.id)
-            BalanceLabel(amount: balance, font: AppTypography.headline)
+            BalanceLabel(
+                amount: interactor.groupBalance(for: group.id),
+                font: AppTypography.headline
+            )
             
             HStack(spacing: AppSpacing.sm) {
                 Image(systemName: group.type.icon)
@@ -64,7 +52,7 @@ struct GroupDetailView: View {
                     .foregroundStyle(AppColors.secondaryText)
                 Text("•")
                     .foregroundStyle(AppColors.tertiaryText)
-                Text("\(members.count) members")
+                Text("\(interactor.members(of: group).count) members")
                     .font(AppTypography.caption)
                     .foregroundStyle(AppColors.secondaryText)
             }
@@ -77,7 +65,9 @@ struct GroupDetailView: View {
     // MARK: - Member Balances
     
     private var memberBalancesSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.md) {
+        let members = interactor.members(of: group)
+        
+        return VStack(alignment: .leading, spacing: AppSpacing.md) {
             SectionHeader(title: "Members")
                 .padding(.horizontal, AppSpacing.lg)
             
@@ -93,8 +83,10 @@ struct GroupDetailView: View {
                         Spacer()
                         
                         if member.id != interactor.currentUser.id {
-                            let balance = interactor.balanceWith(friendId: member.id)
-                            BalanceLabel(amount: balance, font: AppTypography.footnote)
+                            BalanceLabel(
+                                amount: interactor.groupBalanceWith(friendId: member.id, groupId: group.id),
+                                font: AppTypography.footnote
+                            )
                         }
                     }
                     .padding(.horizontal, AppSpacing.lg)
@@ -117,16 +109,14 @@ struct GroupDetailView: View {
     private var actionButtons: some View {
         HStack(spacing: AppSpacing.md) {
             Button {
-                interactor.settleUpGroupId = group.id
-                interactor.showSettleUp = true
+                interactor.requestSettleUp(groupId: group.id)
             } label: {
                 Label("Settle Up", systemImage: "banknote.fill")
             }
             .buttonStyle(SecondaryButtonStyle())
             
             Button {
-                interactor.addExpenseGroupId = group.id
-                interactor.showAddExpense = true
+                interactor.requestAddExpense(groupId: group.id)
             } label: {
                 Label("Add Expense", systemImage: "plus.circle.fill")
             }
@@ -135,10 +125,28 @@ struct GroupDetailView: View {
         .padding(.horizontal, AppSpacing.lg)
     }
     
+    // MARK: - Simplify Debts
+    
+    private var simplifyDebtsSection: some View {
+        let payments = interactor.simplifiedPayments(forGroup: group.id)
+        
+        return Group {
+            if !payments.isEmpty {
+                SimplifyPaymentsView(
+                    interactor: interactor,
+                    groupId: group.id,
+                    payments: payments
+                )
+            }
+        }
+    }
+    
     // MARK: - Expenses
     
     private var expensesSection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.md) {
+        let groupExpenses = interactor.expenses(forGroup: group.id)
+        
+        return VStack(alignment: .leading, spacing: AppSpacing.md) {
             SectionHeader(title: "Expenses")
                 .padding(.horizontal, AppSpacing.lg)
             
@@ -152,11 +160,18 @@ struct GroupDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(groupExpenses) { expense in
-                        ExpenseRow(
-                            expense: expense,
-                            paidByUser: interactor.user(for: expense.paidById),
-                            currentUserId: interactor.currentUser.id
-                        )
+                        Button {
+                            interactor.requestEditExpense(expense)
+                        } label: {
+                            ExpenseRow(
+                                expense: expense,
+                                paidByUser: interactor.user(for: expense.paidById),
+                                currentUserId: interactor.currentUser.id,
+                                showsEditIndicator: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Edit expense")
                         .padding(.horizontal, AppSpacing.lg)
                         .padding(.vertical, AppSpacing.xs)
                         

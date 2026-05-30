@@ -8,36 +8,7 @@
 import SwiftUI
 
 struct ActivityView: View {
-    @ObservedObject var interactor: RootInteractor
-    
-    var groupedActivity: [(String, [ActivityItem])] {
-        let feed = interactor.activityFeed
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        
-        var result: [(String, [ActivityItem])] = []
-        var currentDate = ""
-        var currentItems: [ActivityItem] = []
-        
-        for item in feed {
-            let dateStr = formatter.string(from: item.date)
-            if dateStr != currentDate {
-                if !currentItems.isEmpty {
-                    result.append((currentDate, currentItems))
-                }
-                currentDate = dateStr
-                currentItems = [item]
-            } else {
-                currentItems.append(item)
-            }
-        }
-        if !currentItems.isEmpty {
-            result.append((currentDate, currentItems))
-        }
-        
-        return result
-    }
+    @ObservedObject var interactor: ActivityInteractor
     
     var body: some View {
         NavigationStack {
@@ -51,7 +22,7 @@ struct ActivityView: View {
                     .frame(minHeight: 400)
                 } else {
                     LazyVStack(spacing: AppSpacing.lg, pinnedViews: .sectionHeaders) {
-                        ForEach(groupedActivity, id: \.0) { dateString, items in
+                        ForEach(interactor.groupedActivity, id: \.0) { dateString, items in
                             Section {
                                 VStack(spacing: 0) {
                                     ForEach(items) { item in
@@ -93,11 +64,18 @@ struct ActivityView: View {
     private func activityRow(for item: ActivityItem) -> some View {
         switch item {
         case .expense(let expense):
-            ExpenseRow(
-                expense: expense,
-                paidByUser: interactor.user(for: expense.paidById),
-                currentUserId: interactor.currentUser.id
-            )
+            Button {
+                interactor.requestEditExpense(expense)
+            } label: {
+                ExpenseRow(
+                    expense: expense,
+                    paidByUser: interactor.user(for: expense.paidById),
+                    currentUserId: interactor.currentUser.id,
+                    showsEditIndicator: true
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit expense")
             .padding(.horizontal, AppSpacing.lg)
             .padding(.vertical, AppSpacing.xs)
             

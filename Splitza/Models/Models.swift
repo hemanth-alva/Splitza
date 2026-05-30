@@ -225,3 +225,20 @@ enum ActivityItem: Identifiable {
         }
     }
 }
+
+// MARK: - Simplified Payment (for debt simplification)
+
+struct SimplifiedPayment: Identifiable, Hashable {
+    let id: UUID
+    let fromUserId: UUID
+    let toUserId: UUID
+    let amount: Double
+    
+    init(id: UUID = UUID(), fromUserId: UUID, toUserId: UUID, amount: Double) {
+        self.id = id
+        self.fromUserId = fromUserId
+        self.toUserId = toUserId
+        self.amount = amount
+    }
+}
+

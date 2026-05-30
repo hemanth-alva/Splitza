@@ -8,31 +8,17 @@
 import SwiftUI
 
 struct AccountView: View {
-    @ObservedObject var interactor: RootInteractor
-    @State private var isDarkMode = false
-    @State private var notificationsEnabled = true
-    
-    var netBalance: Double {
-        interactor.totalOwedToMe - interactor.totalIOwe
-    }
+    @ObservedObject var interactor: AccountInteractor
+    @AppStorage("isDarkMode") private var isDarkMode = false
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppSpacing.lg) {
-                    // Profile header
                     profileHeader
-                    
-                    // Balance overview
                     balanceOverview
-                    
-                    // Settings
                     settingsSection
-                    
-                    // App info
                     appInfoSection
-                    
-                    // Logout
                     logoutButton
                 }
                 .padding(.bottom, 100)
@@ -69,15 +55,14 @@ struct AccountView: View {
                 .padding(.horizontal, AppSpacing.lg)
             
             VStack(spacing: AppSpacing.md) {
-                // Net balance
                 VStack(spacing: AppSpacing.xs) {
                     Text("Net Balance")
                         .font(AppTypography.caption)
                         .foregroundStyle(AppColors.secondaryText)
                     
-                    Text(CurrencyFormatter.format(netBalance))
+                    Text(CurrencyFormatter.format(interactor.netBalance))
                         .font(AppTypography.amountLarge)
-                        .foregroundStyle(netBalance >= 0 ? AppColors.owedToYou : AppColors.youOwe)
+                        .foregroundStyle(interactor.netBalance >= 0 ? AppColors.owedToYou : AppColors.youOwe)
                 }
                 
                 Divider()
@@ -104,13 +89,12 @@ struct AccountView: View {
                 
                 Divider()
                 
-                // Stats
                 HStack {
-                    StatItem(title: "Friends", value: "\(interactor.friends.count)", icon: "person.2.fill")
+                    StatItem(title: "Friends", value: "\(interactor.friendsCount)", icon: "person.2.fill")
                     Spacer()
-                    StatItem(title: "Groups", value: "\(interactor.groups.count)", icon: "person.3.fill")
+                    StatItem(title: "Groups", value: "\(interactor.groupsCount)", icon: "person.3.fill")
                     Spacer()
-                    StatItem(title: "Expenses", value: "\(interactor.expenses.count)", icon: "receipt.fill")
+                    StatItem(title: "Expenses", value: "\(interactor.expensesCount)", icon: "receipt.fill")
                 }
             }
             .padding(AppSpacing.xl)
@@ -128,13 +112,6 @@ struct AccountView: View {
                 .padding(.horizontal, AppSpacing.lg)
             
             VStack(spacing: 0) {
-                SettingsRow(icon: "bell.fill", iconColor: .red, title: "Notifications") {
-                    Toggle("", isOn: $notificationsEnabled)
-                        .tint(AppColors.primary)
-                }
-                
-                Divider().padding(.leading, 52)
-                
                 SettingsRow(icon: "moon.fill", iconColor: .indigo, title: "Dark Mode") {
                     Toggle("", isOn: $isDarkMode)
                         .tint(AppColors.primary)
@@ -170,26 +147,23 @@ struct AccountView: View {
                 .padding(.horizontal, AppSpacing.lg)
             
             VStack(spacing: 0) {
+                NavigationLink {
+                    HelpSupportView()
+                } label: {
+                    SettingsRow(icon: "questionmark.circle.fill", iconColor: .orange, title: "Help & Support") {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(AppColors.tertiaryText)
+                    }
+                }
+                .buttonStyle(.plain)
+                
+                Divider().padding(.leading, 52)
+                
                 SettingsRow(icon: "info.circle.fill", iconColor: .blue, title: "Version") {
                     Text("1.0.0")
                         .font(AppTypography.subheadline)
                         .foregroundStyle(AppColors.secondaryText)
-                }
-                
-                Divider().padding(.leading, 52)
-                
-                SettingsRow(icon: "star.fill", iconColor: .yellow, title: "Rate Splitza") {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(AppColors.tertiaryText)
-                }
-                
-                Divider().padding(.leading, 52)
-                
-                SettingsRow(icon: "questionmark.circle.fill", iconColor: .orange, title: "Help & Support") {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(AppColors.tertiaryText)
                 }
             }
             .background(AppColors.cardBackground)

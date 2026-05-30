@@ -7,24 +7,61 @@
 
 import Foundation
 
-public protocol RootRouting: Routing {
-    func routeToAddExpense()
+protocol RootRouting: Routing {
+    func routeToAddExpense(groupId: UUID?, friendId: UUID?)
+    func routeToEditExpense(_ expense: Expense)
+    func dismissAddExpense()
     func routeToCreateGroup()
-    func routeToSettleUp()
+    func dismissCreateGroup()
+    func routeToSettleUp(friendId: UUID?, groupId: UUID?, isNonGroup: Bool)
+    func dismissSettleUp()
 }
 
-public class RootRouter: RootRouting {
-    public init() {}
+class RootRouter: RootRouting {
+    private weak var rootInteractor: RootInteractor?
     
-    public func routeToAddExpense() {
-        // Handled via sheet presentation in RootView
+    init(rootInteractor: RootInteractor) {
+        self.rootInteractor = rootInteractor
     }
     
-    public func routeToCreateGroup() {
-        // Handled via sheet presentation in GroupsView
+    func routeToAddExpense(groupId: UUID? = nil, friendId: UUID? = nil) {
+        rootInteractor?.editingExpense = nil
+        rootInteractor?.addExpenseGroupId = groupId
+        rootInteractor?.addExpenseFriendId = friendId
+        rootInteractor?.showAddExpense = true
     }
     
-    public func routeToSettleUp() {
-        // Handled via sheet presentation in RootView
+    func routeToEditExpense(_ expense: Expense) {
+        rootInteractor?.editingExpense = expense
+        rootInteractor?.addExpenseGroupId = nil
+        rootInteractor?.addExpenseFriendId = nil
+        rootInteractor?.showAddExpense = true
+    }
+    
+    func dismissAddExpense() {
+        rootInteractor?.editingExpense = nil
+        rootInteractor?.addExpenseGroupId = nil
+        rootInteractor?.addExpenseFriendId = nil
+    }
+    
+    func routeToCreateGroup() {
+        rootInteractor?.showCreateGroup = true
+    }
+    
+    func dismissCreateGroup() {
+        rootInteractor?.showCreateGroup = false
+    }
+    
+    func routeToSettleUp(friendId: UUID? = nil, groupId: UUID? = nil, isNonGroup: Bool = false) {
+        rootInteractor?.settleUpWithUserId = friendId
+        rootInteractor?.settleUpGroupId = groupId
+        rootInteractor?.settleUpNonGroup = isNonGroup
+        rootInteractor?.showSettleUp = true
+    }
+    
+    func dismissSettleUp() {
+        rootInteractor?.settleUpWithUserId = nil
+        rootInteractor?.settleUpGroupId = nil
+        rootInteractor?.settleUpNonGroup = false
     }
 }

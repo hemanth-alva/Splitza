@@ -6,15 +6,17 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct AddExpenseView: View {
     @ObservedObject var rootInteractor: RootInteractor
     @StateObject private var interactor: AddExpenseInteractor
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var focusedField: ExpenseField?
     
-    init(rootInteractor: RootInteractor) {
+    init(rootInteractor: RootInteractor, expense: Expense? = nil) {
         self._rootInteractor = ObservedObject(wrappedValue: rootInteractor)
-        self._interactor = StateObject(wrappedValue: AddExpenseInteractor(rootInteractor: rootInteractor))
+        self._interactor = StateObject(wrappedValue: AddExpenseInteractor(rootInteractor: rootInteractor, expense: expense))
     }
     
     var body: some View {
@@ -41,15 +43,19 @@ struct AddExpenseView: View {
                 }
                 .padding(AppSpacing.lg)
                 .padding(.bottom, 40)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    dismissKeyboard()
+                }
             }
+            .scrollDismissesKeyboard(.interactively)
             .background(AppColors.groupedBackground)
-            .navigationTitle("Add Expense")
+            .navigationTitle(interactor.isEditing ? "Edit Expense" : "Add Expense")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
-                        rootInteractor.addExpenseGroupId = nil
-                        rootInteractor.addExpenseFriendId = nil
+                        rootInteractor.router?.dismissAddExpense()
                         dismiss()
                     }
                 }
@@ -59,6 +65,13 @@ struct AddExpenseView: View {
                         dismiss()
                     }
                     .disabled(!interactor.isValid)
+                    .fontWeight(.semibold)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        dismissKeyboard()
+                    }
                     .fontWeight(.semibold)
                 }
             }
@@ -78,6 +91,7 @@ struct AddExpenseView: View {
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(AppColors.primaryText)
+                .focused($focusedField, equals: .amount)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, AppSpacing.xxl)
@@ -96,6 +110,7 @@ struct AddExpenseView: View {
                 .padding(AppSpacing.md)
                 .background(AppColors.cardBackground)
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
+                .focused($focusedField, equals: .description)
         }
     }
     
@@ -152,11 +167,15 @@ struct AddExpenseView: View {
                 Button("No Group") {
                     interactor.selectedGroupId = nil
                     interactor.participantIds = [rootInteractor.currentUser.id]
+                    interactor.paidById = rootInteractor.currentUser.id
                 }
                 ForEach(rootInteractor.groups) { group in
                     Button {
                         interactor.selectedGroupId = group.id
                         interactor.participantIds = Set(group.memberIds)
+                        if !interactor.participantIds.contains(interactor.paidById) {
+                            interactor.paidById = rootInteractor.currentUser.id
+                        }
                     } label: {
                         Label(group.name, systemImage: group.type.icon)
                     }
@@ -233,5 +252,15 @@ struct AddExpenseView: View {
             
             SplitOptionsView(interactor: interactor, rootInteractor: rootInteractor)
         }
+    }
+    
+    private enum ExpenseField: Hashable {
+        case amount
+        case description
+    }
+    
+    private func dismissKeyboard() {
+        focusedField = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

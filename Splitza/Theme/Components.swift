@@ -92,6 +92,7 @@ struct ExpenseRow: View {
     let expense: Expense
     let paidByUser: User?
     let currentUserId: UUID
+    var showsEditIndicator: Bool = false
     
     var body: some View {
         HStack(spacing: AppSpacing.md) {
@@ -137,6 +138,12 @@ struct ExpenseRow: View {
                         .font(AppTypography.caption)
                         .foregroundStyle(AppColors.youOwe)
                 }
+            }
+            
+            if showsEditIndicator {
+                Image(systemName: "pencil")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.tertiaryText)
             }
         }
         .padding(.vertical, AppSpacing.xs)

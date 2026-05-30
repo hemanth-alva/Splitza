@@ -8,26 +8,24 @@
 import SwiftUI
 
 struct GroupsView: View {
-    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var interactor: GroupsInteractor
     
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppSpacing.lg) {
-                    // Balance summary
                     TotalBalanceCard(
                         totalOwed: interactor.totalOwedToMe,
                         totalOwe: interactor.totalIOwe
                     )
                     .padding(.top, AppSpacing.sm)
                     
-                    // Groups list
                     VStack(spacing: AppSpacing.sm) {
                         HStack {
                             SectionHeader(title: "Your Groups")
                             Spacer()
                             Button {
-                                interactor.showCreateGroup = true
+                                interactor.requestShowCreateGroup()
                             } label: {
                                 Image(systemName: "plus.circle.fill")
                                     .font(.system(size: 22))
@@ -36,32 +34,42 @@ struct GroupsView: View {
                         }
                         .padding(.horizontal, AppSpacing.lg)
                         
+                        LazyVStack(spacing: AppSpacing.sm) {
+                            NavigationLink {
+                                NonGroupDetailView(interactor: interactor)
+                            } label: {
+                                NonGroupCard(
+                                    members: interactor.nonGroupParticipants,
+                                    balance: interactor.nonGroupBalance
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            
+                            ForEach(interactor.groups) { group in
+                                NavigationLink {
+                                    GroupDetailView(interactor: interactor, group: group)
+                                } label: {
+                                    GroupCard(
+                                        group: group,
+                                        members: interactor.members(of: group),
+                                        balance: interactor.groupBalance(for: group.id)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, AppSpacing.lg)
+                        
                         if interactor.groups.isEmpty {
                             EmptyStateView(
                                 icon: "person.3.fill",
                                 title: "No Groups Yet",
-                                subtitle: "Create a group to start splitting expenses with friends",
+                                subtitle: "Create a group to start splitting group expenses",
                                 actionTitle: "Create Group"
                             ) {
-                                interactor.showCreateGroup = true
+                                interactor.requestShowCreateGroup()
                             }
-                            .frame(height: 300)
-                        } else {
-                            LazyVStack(spacing: AppSpacing.sm) {
-                                ForEach(interactor.groups) { group in
-                                    NavigationLink {
-                                        GroupDetailView(interactor: interactor, group: group)
-                                    } label: {
-                                        GroupCard(
-                                            group: group,
-                                            members: interactor.members(of: group),
-                                            balance: interactor.groupBalance(groupId: group.id)
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, AppSpacing.lg)
+                            .frame(height: 220)
                         }
                     }
                 }
@@ -85,7 +93,6 @@ struct GroupCard: View {
     
     var body: some View {
         HStack(spacing: AppSpacing.md) {
-            // Emoji icon
             ZStack {
                 RoundedRectangle(cornerRadius: AppRadius.md)
                     .fill(AppColors.primary.opacity(0.1))
@@ -100,6 +107,42 @@ struct GroupCard: View {
                     .foregroundStyle(AppColors.primaryText)
                 
                 AvatarStackView(users: members, size: 22)
+            }
+            
+            Spacer()
+            
+            BalanceLabel(amount: balance, font: AppTypography.footnote, showSign: true)
+        }
+        .cardStyle()
+    }
+}
+
+struct NonGroupCard: View {
+    let members: [User]
+    let balance: Double
+    
+    var body: some View {
+        HStack(spacing: AppSpacing.md) {
+            ZStack {
+                RoundedRectangle(cornerRadius: AppRadius.md)
+                    .fill(AppColors.primary.opacity(0.1))
+                    .frame(width: 50, height: 50)
+                Text("🧾")
+                    .font(.system(size: 24))
+            }
+            
+            VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                Text("Non-group expenses")
+                    .font(AppTypography.headline)
+                    .foregroundStyle(AppColors.primaryText)
+                
+                if members.count > 1 {
+                    AvatarStackView(users: members, size: 22)
+                } else {
+                    Text("Expenses outside groups")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.secondaryText)
+                }
             }
             
             Spacer()

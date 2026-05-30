@@ -24,14 +24,43 @@ class AddExpenseInteractor: ObservableObject {
     @Published var shares: [UUID: String] = [:]
     
     let rootInteractor: RootInteractor
+    private let editingExpense: Expense?
     
     var amount: Double {
         Double(amountText) ?? 0
     }
     
-    init(rootInteractor: RootInteractor) {
+    var isEditing: Bool {
+        editingExpense != nil
+    }
+    
+    init(rootInteractor: RootInteractor, expense: Expense? = nil) {
         self.rootInteractor = rootInteractor
-        self.paidById = rootInteractor.currentUser.id
+        self.editingExpense = expense
+        self.paidById = expense?.paidById ?? rootInteractor.currentUser.id
+        
+        if let expense {
+            self.description = expense.description
+            self.amountText = Self.editableNumber(expense.amount)
+            self.selectedCategory = expense.category
+            self.splitType = expense.splitType
+            self.selectedGroupId = expense.groupId
+            self.participantIds = Set(expense.splits.map(\.userId))
+            
+            for split in expense.splits {
+                exactAmounts[split.userId] = Self.editableNumber(split.amount)
+                if expense.amount > 0 {
+                    let percentage = split.amount / expense.amount * 100
+                    percentages[split.userId] = Self.editableNumber(percentage)
+                    shares[split.userId] = "\(max(1, Int(round(percentage))))"
+                }
+            }
+            
+            if participantIds.isEmpty, let groupId = expense.groupId, let group = rootInteractor.group(for: groupId) {
+                participantIds = Set(group.memberIds)
+            }
+            return
+        }
         
         // Pre-select group if set
         if let groupId = rootInteractor.addExpenseGroupId {
@@ -106,6 +135,15 @@ class AddExpenseInteractor: ObservableObject {
         }
     }
     
+    func computedAmount(for userId: UUID) -> Double {
+        computeSplits().first(where: { $0.userId == userId })?.amount ?? 0
+    }
+    
+    func computedPercentage(for userId: UUID) -> Double {
+        guard amount > 0 else { return 0 }
+        return computedAmount(for: userId) / amount * 100
+    }
+    
     // MARK: - Remaining (for exact amounts)
     
     var exactRemaining: Double {
@@ -122,18 +160,31 @@ class AddExpenseInteractor: ObservableObject {
     
     func save() {
         let expense = Expense(
+            id: editingExpense?.id ?? UUID(),
             description: description,
             amount: amount,
             paidById: paidById,
             splitType: splitType,
             splits: computeSplits(),
+            date: editingExpense?.date ?? Date(),
             groupId: selectedGroupId,
             category: selectedCategory
         )
-        rootInteractor.addExpense(expense)
         
-        // Clear pre-selections
-        rootInteractor.addExpenseGroupId = nil
-        rootInteractor.addExpenseFriendId = nil
+        if isEditing {
+            rootInteractor.updateExpense(expense)
+        } else {
+            rootInteractor.addExpense(expense)
+        }
+        
+        rootInteractor.router?.dismissAddExpense()
+    }
+    
+    private static func editableNumber(_ value: Double) -> String {
+        let rounded = (value * 100).rounded() / 100
+        if rounded.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(rounded))
+        }
+        return String(format: "%.2f", rounded)
     }
 }

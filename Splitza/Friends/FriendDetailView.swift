@@ -8,30 +8,15 @@
 import SwiftUI
 
 struct FriendDetailView: View {
-    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var interactor: FriendsInteractor
     let friend: User
-    
-    var friendExpenses: [Expense] {
-        interactor.expenses(withFriend: friend.id).sorted { $0.date > $1.date }
-    }
-    
-    var balance: Double {
-        interactor.balanceWith(friendId: friend.id)
-    }
     
     var body: some View {
         ScrollView {
             VStack(spacing: AppSpacing.lg) {
-                // Friend header
                 friendHeader
-                
-                // Actions
                 actionButtons
-                
-                // Shared groups
                 sharedGroupsSection
-                
-                // Expense history
                 expenseHistorySection
             }
             .padding(.bottom, 40)
@@ -51,7 +36,7 @@ struct FriendDetailView: View {
                 .font(AppTypography.title2)
                 .foregroundStyle(AppColors.primaryText)
             
-            BalanceLabel(amount: balance, font: AppTypography.headline)
+            BalanceLabel(amount: interactor.balance(with: friend.id), font: AppTypography.headline)
             
             Text(friend.email)
                 .font(AppTypography.caption)
@@ -67,16 +52,14 @@ struct FriendDetailView: View {
     private var actionButtons: some View {
         HStack(spacing: AppSpacing.md) {
             Button {
-                interactor.settleUpWithUserId = friend.id
-                interactor.showSettleUp = true
+                interactor.requestSettleUp(friendId: friend.id)
             } label: {
                 Label("Settle Up", systemImage: "banknote.fill")
             }
             .buttonStyle(SecondaryButtonStyle())
             
             Button {
-                interactor.addExpenseFriendId = friend.id
-                interactor.showAddExpense = true
+                interactor.requestAddExpense(friendId: friend.id)
             } label: {
                 Label("Add Expense", systemImage: "plus.circle.fill")
             }
@@ -88,7 +71,7 @@ struct FriendDetailView: View {
     // MARK: - Shared Groups
     
     private var sharedGroupsSection: some View {
-        let sharedGroups = interactor.groups.filter { $0.memberIds.contains(friend.id) }
+        let sharedGroups = interactor.sharedGroups(with: friend.id)
         
         return Group {
             if !sharedGroups.isEmpty {
@@ -125,7 +108,9 @@ struct FriendDetailView: View {
     // MARK: - Expense History
     
     private var expenseHistorySection: some View {
-        VStack(alignment: .leading, spacing: AppSpacing.md) {
+        let friendExpenses = interactor.expenses(withFriend: friend.id)
+        
+        return VStack(alignment: .leading, spacing: AppSpacing.md) {
             SectionHeader(title: "Expense History")
                 .padding(.horizontal, AppSpacing.lg)
             
@@ -139,11 +124,18 @@ struct FriendDetailView: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(friendExpenses) { expense in
-                        ExpenseRow(
-                            expense: expense,
-                            paidByUser: interactor.user(for: expense.paidById),
-                            currentUserId: interactor.currentUser.id
-                        )
+                        Button {
+                            interactor.requestEditExpense(expense)
+                        } label: {
+                            ExpenseRow(
+                                expense: expense,
+                                paidByUser: interactor.user(for: expense.paidById),
+                                currentUserId: interactor.currentUser.id,
+                                showsEditIndicator: true
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Edit expense")
                         .padding(.horizontal, AppSpacing.lg)
                         .padding(.vertical, AppSpacing.xs)
                         

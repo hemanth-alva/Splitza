@@ -113,68 +113,97 @@ struct SplitOptionsView: View {
         case .equal:
             if interactor.participantIds.contains(user.id) && interactor.amount > 0 {
                 let share = interactor.amount / Double(interactor.participantIds.count)
-                Text(CurrencyFormatter.format(share))
-                    .font(AppTypography.footnote)
-                    .foregroundStyle(AppColors.secondaryText)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(CurrencyFormatter.format(share))
+                        .font(AppTypography.footnote)
+                        .foregroundStyle(AppColors.secondaryText)
+                    Text(formatPercentage(interactor.computedPercentage(for: user.id)))
+                        .font(AppTypography.caption2)
+                        .foregroundStyle(AppColors.tertiaryText)
+                }
             }
             
         case .exact:
-            HStack(spacing: 4) {
-                Text("₹")
-                    .font(AppTypography.footnote)
-                    .foregroundStyle(AppColors.secondaryText)
-                TextField("0", text: Binding(
-                    get: { interactor.exactAmounts[user.id] ?? "" },
-                    set: { interactor.exactAmounts[user.id] = $0 }
-                ))
-                .font(AppTypography.body)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 80)
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("₹")
+                        .font(AppTypography.footnote)
+                        .foregroundStyle(AppColors.secondaryText)
+                    TextField("0", text: Binding(
+                        get: { interactor.exactAmounts[user.id] ?? "" },
+                        set: { interactor.exactAmounts[user.id] = $0 }
+                    ))
+                    .font(AppTypography.body)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 80)
+                }
+                
+                if interactor.amount > 0 {
+                    Text(formatPercentage(interactor.computedPercentage(for: user.id)))
+                        .font(AppTypography.caption2)
+                        .foregroundStyle(AppColors.tertiaryText)
+                }
             }
             
         case .percentage:
-            HStack(spacing: 4) {
-                TextField("0", text: Binding(
-                    get: { interactor.percentages[user.id] ?? "" },
-                    set: { interactor.percentages[user.id] = $0 }
-                ))
-                .font(AppTypography.body)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 60)
-                Text("%")
-                    .font(AppTypography.footnote)
-                    .foregroundStyle(AppColors.secondaryText)
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: 4) {
+                    TextField("0", text: Binding(
+                        get: { interactor.percentages[user.id] ?? "" },
+                        set: { interactor.percentages[user.id] = $0 }
+                    ))
+                    .font(AppTypography.body)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 60)
+                    Text("%")
+                        .font(AppTypography.footnote)
+                        .foregroundStyle(AppColors.secondaryText)
+                }
+                
+                if interactor.amount > 0 {
+                    Text(CurrencyFormatter.format(interactor.computedAmount(for: user.id)))
+                        .font(AppTypography.caption2)
+                        .foregroundStyle(AppColors.tertiaryText)
+                }
             }
             
         case .shares:
-            HStack(spacing: AppSpacing.sm) {
-                Button {
-                    let current = Int(interactor.shares[user.id] ?? "0") ?? 0
-                    if current > 0 {
-                        interactor.shares[user.id] = "\(current - 1)"
+            VStack(alignment: .trailing, spacing: 2) {
+                HStack(spacing: AppSpacing.sm) {
+                    Button {
+                        let current = Int(interactor.shares[user.id] ?? "0") ?? 0
+                        if current > 0 {
+                            interactor.shares[user.id] = "\(current - 1)"
+                        }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                            .foregroundStyle(AppColors.secondaryText)
+                            .font(.system(size: 22))
                     }
-                } label: {
-                    Image(systemName: "minus.circle.fill")
-                        .foregroundStyle(AppColors.secondaryText)
-                        .font(.system(size: 22))
+                    .buttonStyle(.plain)
+                    
+                    Text(interactor.shares[user.id] ?? "0")
+                        .font(AppTypography.headline)
+                        .frame(width: 28, alignment: .center)
+                    
+                    Button {
+                        let current = Int(interactor.shares[user.id] ?? "0") ?? 0
+                        interactor.shares[user.id] = "\(current + 1)"
+                    } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(AppColors.primary)
+                            .font(.system(size: 22))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 
-                Text(interactor.shares[user.id] ?? "0")
-                    .font(AppTypography.headline)
-                    .frame(width: 28, alignment: .center)
-                
-                Button {
-                    let current = Int(interactor.shares[user.id] ?? "0") ?? 0
-                    interactor.shares[user.id] = "\(current + 1)"
-                } label: {
-                    Image(systemName: "plus.circle.fill")
-                        .foregroundStyle(AppColors.primary)
-                        .font(.system(size: 22))
+                if interactor.amount > 0 {
+                    Text("\(formatPercentage(interactor.computedPercentage(for: user.id))) • \(CurrencyFormatter.format(interactor.computedAmount(for: user.id)))")
+                        .font(AppTypography.caption2)
+                        .foregroundStyle(AppColors.tertiaryText)
                 }
-                .buttonStyle(.plain)
             }
         }
     }
@@ -233,5 +262,12 @@ struct SplitOptionsView: View {
         .padding(.vertical, AppSpacing.sm)
         .background(AppColors.secondaryBackground)
         .clipShape(RoundedRectangle(cornerRadius: AppRadius.sm))
+    }
+    
+    private func formatPercentage(_ value: Double) -> String {
+        if value.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(value))%"
+        }
+        return String(format: "%.1f%%", value)
     }
 }

@@ -7,23 +7,24 @@
 
 import SwiftUI
 
-public struct RootView: View {
-    @ObservedObject public var interactor: RootInteractor
+struct RootView: View {
+    @ObservedObject var interactor: RootInteractor
+    @ObservedObject var groupsInteractor: GroupsInteractor
+    @ObservedObject var friendsInteractor: FriendsInteractor
+    @ObservedObject var activityInteractor: ActivityInteractor
+    @ObservedObject var accountInteractor: AccountInteractor
+    @AppStorage("isDarkMode") private var isDarkMode = false
     
-    public init(interactor: RootInteractor) {
-        self.interactor = interactor
-    }
-    
-    public var body: some View {
+    var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $interactor.selectedTab) {
-                GroupsView(interactor: interactor)
+                GroupsView(interactor: groupsInteractor)
                     .tabItem {
                         Label("Groups", systemImage: "person.3.fill")
                     }
                     .tag(0)
                 
-                FriendsView(interactor: interactor)
+                FriendsView(interactor: friendsInteractor)
                     .tabItem {
                         Label("Friends", systemImage: "person.2.fill")
                     }
@@ -36,13 +37,13 @@ public struct RootView: View {
                     }
                     .tag(99)
                 
-                ActivityView(interactor: interactor)
+                ActivityView(interactor: activityInteractor)
                     .tabItem {
                         Label("Activity", systemImage: "clock.fill")
                     }
                     .tag(2)
                 
-                AccountView(interactor: interactor)
+                AccountView(interactor: accountInteractor)
                     .tabItem {
                         Label("Account", systemImage: "person.circle.fill")
                     }
@@ -60,19 +61,24 @@ public struct RootView: View {
         .onDisappear {
             interactor.willResignActive()
         }
-        .sheet(isPresented: $interactor.showAddExpense) {
-            AddExpenseView(rootInteractor: interactor)
+        .sheet(isPresented: $interactor.showAddExpense, onDismiss: {
+            interactor.router?.dismissAddExpense()
+        }) {
+            AddExpenseView(rootInteractor: interactor, expense: interactor.editingExpense)
         }
-        .sheet(isPresented: $interactor.showSettleUp) {
-            SettleUpView(interactor: interactor)
+        .sheet(isPresented: $interactor.showSettleUp, onDismiss: {
+            interactor.router?.dismissSettleUp()
+        }) {
+            SettleUpView(rootInteractor: interactor)
         }
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
     
     // MARK: - Add Button
     
     private var addButton: some View {
         Button {
-            interactor.showAddExpense = true
+            interactor.router?.routeToAddExpense(groupId: nil, friendId: nil)
         } label: {
             ZStack {
                 Circle()
@@ -98,6 +104,8 @@ public struct RootView: View {
     }
 }
 
-#Preview {
-    RootView(interactor: RootInteractor())
+struct RootView_Previews: PreviewProvider {
+    static var previews: some View {
+        RootBuilder().build()
+    }
 }
