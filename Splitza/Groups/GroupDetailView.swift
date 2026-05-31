@@ -15,7 +15,6 @@ struct GroupDetailView: View {
         ScrollView {
             VStack(spacing: AppSpacing.lg) {
                 groupHeader
-                memberBalancesSection
                 actionButtons
                 simplifyDebtsSection
                 expensesSection
@@ -62,47 +61,7 @@ struct GroupDetailView: View {
         .background(AppColors.cardBackground)
     }
     
-    // MARK: - Member Balances
-    
-    private var memberBalancesSection: some View {
-        let members = interactor.members(of: group)
-        
-        return VStack(alignment: .leading, spacing: AppSpacing.md) {
-            SectionHeader(title: "Members")
-                .padding(.horizontal, AppSpacing.lg)
-            
-            VStack(spacing: 0) {
-                ForEach(members) { member in
-                    HStack(spacing: AppSpacing.md) {
-                        AvatarView(user: member, size: 36)
-                        
-                        Text(member.id == interactor.currentUser.id ? "You" : member.name)
-                            .font(AppTypography.body)
-                            .foregroundStyle(AppColors.primaryText)
-                        
-                        Spacer()
-                        
-                        if member.id != interactor.currentUser.id {
-                            BalanceLabel(
-                                amount: interactor.groupBalanceWith(friendId: member.id, groupId: group.id),
-                                font: AppTypography.footnote
-                            )
-                        }
-                    }
-                    .padding(.horizontal, AppSpacing.lg)
-                    .padding(.vertical, AppSpacing.md)
-                    
-                    if member.id != members.last?.id {
-                        Divider()
-                            .padding(.leading, 64)
-                    }
-                }
-            }
-            .background(AppColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
-            .padding(.horizontal, AppSpacing.lg)
-        }
-    }
+
     
     // MARK: - Action Buttons
     
@@ -128,54 +87,69 @@ struct GroupDetailView: View {
     // MARK: - Simplify Debts
     
     private var simplifyDebtsSection: some View {
-        let payments = interactor.simplifiedPayments(forGroup: group.id)
+        let isEnabled = interactor.isSimplifyEnabled(for: group.id)
         
-        return Group {
+        return VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            HStack {
+                SectionHeader(title: "Debts")
+                Spacer()
+                
+                HStack(spacing: AppSpacing.xs) {
+                    Text("Simplify")
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.secondaryText)
+                    
+                    Toggle("", isOn: Binding(
+                        get: { isEnabled },
+                        set: { _ in interactor.toggleSimplifyDebts(for: group.id) }
+                    ))
+                    .labelsHidden()
+                    .tint(AppColors.primary)
+                }
+            }
+            .padding(.horizontal, AppSpacing.lg)
+            
+            let payments = isEnabled ? interactor.simplifiedPayments(forGroup: group.id) : interactor.rawDebts(forGroup: group.id)
+            
             if !payments.isEmpty {
                 SimplifyPaymentsView(
                     interactor: interactor,
                     groupId: group.id,
-                    payments: payments
+                    payments: payments,
+                    isSimplified: isEnabled
                 )
+                .padding(.top, AppSpacing.xs)
+            } else {
+                Text(isEnabled ? "No debts to simplify right now." : "No outstanding debts in this group.")
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.secondaryText)
+                    .padding(.horizontal, AppSpacing.lg)
             }
         }
     }
     
-    // MARK: - Expenses
+    // MARK: - Activity History
     
     private var expensesSection: some View {
-        let groupExpenses = interactor.expenses(forGroup: group.id)
+        let activities = interactor.groupActivity(forGroup: group.id)
         
         return VStack(alignment: .leading, spacing: AppSpacing.md) {
-            SectionHeader(title: "Expenses")
+            SectionHeader(title: "History")
                 .padding(.horizontal, AppSpacing.lg)
             
-            if groupExpenses.isEmpty {
+            if activities.isEmpty {
                 EmptyStateView(
                     icon: "receipt",
-                    title: "No Expenses Yet",
+                    title: "No Activity Yet",
                     subtitle: "Add an expense to start splitting costs"
                 )
                 .frame(height: 200)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(groupExpenses) { expense in
-                        Button {
-                            interactor.requestEditExpense(expense)
-                        } label: {
-                            ExpenseRow(
-                                expense: expense,
-                                paidByUser: interactor.user(for: expense.paidById),
-                                currentUserId: interactor.currentUser.id,
-                                showsEditIndicator: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Edit expense")
-                        .padding(.horizontal, AppSpacing.lg)
-                        .padding(.vertical, AppSpacing.xs)
+                    ForEach(activities) { item in
+                        activityRow(for: item)
                         
-                        if expense.id != groupExpenses.last?.id {
+                        if item.id != activities.last?.id {
                             Divider()
                                 .padding(.leading, 64)
                         }
@@ -185,6 +159,37 @@ struct GroupDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
                 .padding(.horizontal, AppSpacing.lg)
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func activityRow(for item: ActivityItem) -> some View {
+        switch item {
+        case .expense(let expense):
+            Button {
+                interactor.requestEditExpense(expense)
+            } label: {
+                ExpenseRow(
+                    expense: expense,
+                    paidByUser: interactor.user(for: expense.paidById),
+                    currentUserId: interactor.currentUser.id,
+                    showsEditIndicator: true
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit expense")
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.xs)
+            
+        case .settlement(let settlement):
+            SettlementRow(
+                settlement: settlement,
+                fromUser: interactor.user(for: settlement.fromUserId),
+                toUser: interactor.user(for: settlement.toUserId),
+                currentUserId: interactor.currentUser.id
+            )
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.xs)
         }
     }
 }

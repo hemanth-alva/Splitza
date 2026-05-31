@@ -16,15 +16,18 @@ struct SimplifyPaymentsView: View {
     
     @State private var showConfirmSettleAll = false
     
+    var isSimplified: Bool = true
+    
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
             // Header
-            HStack {
-                SectionHeader(title: "Simplified Debts")
-                Spacer()
-                savingsTag
+            if isSimplified {
+                HStack {
+                    Spacer()
+                    savingsTag
+                }
+                .padding(.horizontal, AppSpacing.lg)
             }
-            .padding(.horizontal, AppSpacing.lg)
             
             // Payment list
             VStack(spacing: 0) {

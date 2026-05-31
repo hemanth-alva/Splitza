@@ -113,4 +113,58 @@ struct DebtSimplifier {
     ) -> Int {
         return max(0, originalPairCount - simplifiedPayments.count)
     }
+    
+    /// Compute raw (non-simplified) pairwise debts within a group.
+    /// This just nets out exact balances between each pair of users.
+    static func rawDebts(
+        expenses: [Expense],
+        settlements: [Settlement],
+        memberIds: [UUID]
+    ) -> [SimplifiedPayment] {
+        // Map of "UserA-UserB" to balance. (Always UserA < UserB stringwise)
+        var pairBalances: [String: Double] = [:]
+        
+        func addDebt(from debtor: UUID, to creditor: UUID, amount: Double) {
+            let user1 = min(debtor.uuidString, creditor.uuidString)
+            let user2 = max(debtor.uuidString, creditor.uuidString)
+            let key = "\(user1)_\(user2)"
+            
+            // If debtor is user1, balance decreases. If debtor is user2, balance increases.
+            // Let's say positive means user2 owes user1. Negative means user1 owes user2.
+            let sign: Double = (debtor.uuidString == user1) ? -1 : 1
+            pairBalances[key, default: 0] += (amount * sign)
+        }
+        
+        for expense in expenses {
+            let payer = expense.paidById
+            for split in expense.splits where split.userId != payer {
+                addDebt(from: split.userId, to: payer, amount: split.amount)
+            }
+        }
+        
+        for settlement in settlements {
+            // A settlement is fromUser paying toUser, reducing the debt fromUser owes toUser.
+            // So it acts like an expense where fromUser paid for toUser.
+            addDebt(from: settlement.toUserId, to: settlement.fromUserId, amount: settlement.amount)
+        }
+        
+        var rawPayments: [SimplifiedPayment] = []
+        
+        for (key, balance) in pairBalances {
+            let parts = key.components(separatedBy: "_")
+            guard parts.count == 2, abs(balance) > 0.01 else { continue }
+            let user1 = UUID(uuidString: parts[0])!
+            let user2 = UUID(uuidString: parts[1])!
+            
+            if balance > 0 {
+                // user2 owes user1
+                rawPayments.append(SimplifiedPayment(fromUserId: user2, toUserId: user1, amount: round(balance * 100) / 100))
+            } else {
+                // user1 owes user2
+                rawPayments.append(SimplifiedPayment(fromUserId: user1, toUserId: user2, amount: round(abs(balance) * 100) / 100))
+            }
+        }
+        
+        return rawPayments
+    }
 }

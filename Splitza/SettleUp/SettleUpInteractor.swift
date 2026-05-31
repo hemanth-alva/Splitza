@@ -142,9 +142,9 @@ class SettleUpInteractor: ObservableObject {
         case .all, .individual:
             return rootInteractor.balanceWith(friendId: friendId)
         case .group(let groupId):
-            return rootInteractor.balanceWith(friendId: friendId, scopedToGroup: groupId)
+            return rootInteractor.balanceWith(friendId: friendId, scopedToGroup: groupId, respectSimplify: true)
         case .nonGroup:
-            return rootInteractor.balanceWith(friendId: friendId, scopedToGroup: nil)
+            return rootInteractor.balanceWith(friendId: friendId, scopedToGroup: nil, respectSimplify: true)
         }
     }
     
@@ -160,30 +160,106 @@ class SettleUpInteractor: ObservableObject {
         guard let friendId = selectedFriendId,
               let amount = Double(amountText), amount > 0 else { return false }
         
-        let balance = balance(with: friendId)
+        let totalBalance = balance(with: friendId)
+        let isIOwe = totalBalance < 0
         
-        let settlement: Settlement
-        if balance < 0 {
-            // I owe them
-            settlement = Settlement(
-                fromUserId: rootInteractor.currentUser.id,
-                toUserId: friendId,
-                amount: amount,
-                groupId: settlementGroupId
-            )
-        } else {
-            // They owe me
-            settlement = Settlement(
-                fromUserId: friendId,
-                toUserId: rootInteractor.currentUser.id,
-                amount: amount,
-                groupId: settlementGroupId
-            )
+        // If we are settling inside a specific group or non-group context,
+        // we just record one settlement scoped to that context.
+        switch context {
+        case .group(let groupId):
+            createSettlement(friendId: friendId, amount: amount, isIOwe: isIOwe, groupId: groupId)
+        case .nonGroup:
+            createSettlement(friendId: friendId, amount: amount, isIOwe: isIOwe, groupId: nil)
+        case .all, .individual:
+            // Distribute the payment across all shared groups and non-group debts
+            distributeSettlement(amount: amount, friendId: friendId, isIOwe: isIOwe)
         }
         
-        rootInteractor.addSettlement(settlement)
         rootInteractor.router?.dismissSettleUp()
         return true
+    }
+    
+    private func distributeSettlement(amount: Double, friendId: UUID, isIOwe: Bool) {
+        let sharedGroups = rootInteractor.groups.filter {
+            $0.memberIds.contains(friendId) && $0.memberIds.contains(rootInteractor.currentUser.id)
+        }
+        
+        // Collect per-context balances (positive = they owe me, negative = I owe them)
+        struct ContextDebt {
+            let groupId: UUID?
+            let balance: Double
+        }
+        
+        var contextDebts: [ContextDebt] = []
+        
+        // Non-group balance
+        let nonGroupBalance = rootInteractor.balanceWith(friendId: friendId, scopedToGroup: nil)
+        if abs(nonGroupBalance) > 0.01 {
+            contextDebts.append(ContextDebt(groupId: nil, balance: nonGroupBalance))
+        }
+        
+        // Group balances
+        for group in sharedGroups {
+            let groupBalance = rootInteractor.balanceWith(friendId: friendId, scopedToGroup: group.id)
+            if abs(groupBalance) > 0.01 {
+                contextDebts.append(ContextDebt(groupId: group.id, balance: groupBalance))
+            }
+        }
+        
+        // Check if this is a full settlement (paying the exact global balance)
+        let totalGlobalDebt = abs(rootInteractor.balanceWith(friendId: friendId))
+        let isFullSettlement = abs(amount - totalGlobalDebt) < 0.01
+        
+        if isFullSettlement {
+            // Full settlement: zero out EVERY context individually, regardless of direction.
+            // This ensures each group shows as settled.
+            for debt in contextDebts {
+                let debtIsIOwe = debt.balance < 0
+                createSettlement(
+                    friendId: friendId,
+                    amount: abs(debt.balance),
+                    isIOwe: debtIsIOwe,
+                    groupId: debt.groupId
+                )
+            }
+        } else {
+            // Partial settlement: greedily apply to debts in the main direction first
+            var remainingAmount = amount
+            
+            // Sort: main-direction debts first, then by amount descending
+            let sorted = contextDebts.sorted { a, b in
+                let aMainDir = (isIOwe && a.balance < 0) || (!isIOwe && a.balance > 0)
+                let bMainDir = (isIOwe && b.balance < 0) || (!isIOwe && b.balance > 0)
+                if aMainDir != bMainDir { return aMainDir }
+                return abs(a.balance) > abs(b.balance)
+            }
+            
+            for debt in sorted {
+                if remainingAmount <= 0.01 { break }
+                // Only settle debts flowing in the main direction for partial payments
+                let debtFlowsMainDir = (isIOwe && debt.balance < 0) || (!isIOwe && debt.balance > 0)
+                guard debtFlowsMainDir else { continue }
+                
+                let settleAmount = min(remainingAmount, abs(debt.balance))
+                createSettlement(friendId: friendId, amount: settleAmount, isIOwe: isIOwe, groupId: debt.groupId)
+                remainingAmount -= settleAmount
+            }
+            
+            // If there is still remaining amount (overpayment), put in non-group
+            if remainingAmount > 0.01 {
+                createSettlement(friendId: friendId, amount: remainingAmount, isIOwe: isIOwe, groupId: nil)
+            }
+        }
+    }
+    
+    private func createSettlement(friendId: UUID, amount: Double, isIOwe: Bool, groupId: UUID?) {
+        let settlement = Settlement(
+            fromUserId: isIOwe ? rootInteractor.currentUser.id : friendId,
+            toUserId: isIOwe ? friendId : rootInteractor.currentUser.id,
+            amount: amount,
+            groupId: groupId
+        )
+        rootInteractor.addSettlement(settlement)
     }
     
     func cancel() {

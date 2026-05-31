@@ -41,14 +41,16 @@ struct ExpenseGroup: Identifiable, Hashable {
     var type: GroupType
     var emoji: String
     var createdAt: Date
+    var simplifyDebts: Bool
     
-    init(id: UUID = UUID(), name: String, memberIds: [UUID], type: GroupType = .other, emoji: String = "👥", createdAt: Date = Date()) {
+    init(id: UUID = UUID(), name: String, memberIds: [UUID], type: GroupType = .other, emoji: String = "👥", createdAt: Date = Date(), simplifyDebts: Bool = true) {
         self.id = id
         self.name = name
         self.memberIds = memberIds
         self.type = type
         self.emoji = emoji
         self.createdAt = createdAt
+        self.simplifyDebts = simplifyDebts
     }
 }
 

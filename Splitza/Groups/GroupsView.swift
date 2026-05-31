@@ -45,7 +45,10 @@ struct GroupsView: View {
                             }
                             .buttonStyle(.plain)
                             
-                            ForEach(interactor.groups) { group in
+                            let unsettledGroups = interactor.groups.filter { abs(interactor.groupBalance(for: $0.id)) > 0.01 }
+                            let settledGroups = interactor.groups.filter { abs(interactor.groupBalance(for: $0.id)) <= 0.01 }
+                            
+                            ForEach(unsettledGroups) { group in
                                 NavigationLink {
                                     GroupDetailView(interactor: interactor, group: group)
                                 } label: {
@@ -56,6 +59,34 @@ struct GroupsView: View {
                                     )
                                 }
                                 .buttonStyle(.plain)
+                            }
+                            
+                            if !settledGroups.isEmpty {
+                                HStack(spacing: AppSpacing.xs) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundStyle(AppColors.owedToYou)
+                                    Text("Settled Up")
+                                        .font(AppTypography.footnote)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(AppColors.secondaryText)
+                                    Spacer()
+                                }
+                                .padding(.top, AppSpacing.sm)
+                                
+                                ForEach(settledGroups) { group in
+                                    NavigationLink {
+                                        GroupDetailView(interactor: interactor, group: group)
+                                    } label: {
+                                        GroupCard(
+                                            group: group,
+                                            members: interactor.members(of: group),
+                                            balance: interactor.groupBalance(for: group.id)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .opacity(0.7)
+                                }
                             }
                         }
                         .padding(.horizontal, AppSpacing.lg)

@@ -13,9 +13,16 @@ import Combine
 class AccountInteractor: ObservableObject {
     
     let rootInteractor: RootInteractor
+    private var cancellables = Set<AnyCancellable>()
     
     init(rootInteractor: RootInteractor) {
         self.rootInteractor = rootInteractor
+        
+        // Forward all root changes so this interactor's views re-render
+        rootInteractor.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
     
     // MARK: - Computed State

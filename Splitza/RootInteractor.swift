@@ -111,29 +111,13 @@ class RootInteractor: Interacting {
     func balanceWith(friendId: UUID) -> Double {
         var balance: Double = 0
         
-        for expense in expenses {
-            let involvesMe = expense.paidById == currentUser.id || expense.splits.contains(where: { $0.userId == currentUser.id })
-            let involvesFriend = expense.paidById == friendId || expense.splits.contains(where: { $0.userId == friendId })
-            
-            guard involvesMe && involvesFriend else { continue }
-            
-            if expense.paidById == currentUser.id {
-                if let friendSplit = expense.splits.first(where: { $0.userId == friendId }) {
-                    balance += friendSplit.amount
-                }
-            } else if expense.paidById == friendId {
-                if let mySplit = expense.splits.first(where: { $0.userId == currentUser.id }) {
-                    balance -= mySplit.amount
-                }
-            }
-        }
+        // 1. Non-group balance
+        balance += balanceWith(friendId: friendId, scopedToGroup: nil)
         
-        for settlement in settlements {
-            if settlement.fromUserId == currentUser.id && settlement.toUserId == friendId {
-                balance += settlement.amount
-            } else if settlement.fromUserId == friendId && settlement.toUserId == currentUser.id {
-                balance -= settlement.amount
-            }
+        // 2. Group balances (respect simplified debts if enabled)
+        for group in groups {
+            guard group.memberIds.contains(friendId) && group.memberIds.contains(currentUser.id) else { continue }
+            balance += balanceWith(friendId: friendId, scopedToGroup: group.id, respectSimplify: true)
         }
         
         return balance
@@ -201,7 +185,20 @@ class RootInteractor: Interacting {
         return balance
     }
     
-    func balanceWith(friendId: UUID, scopedToGroup groupId: UUID?) -> Double {
+    func balanceWith(friendId: UUID, scopedToGroup groupId: UUID?, respectSimplify: Bool = true) -> Double {
+        if let groupId = groupId, respectSimplify, let group = group(for: groupId), group.simplifyDebts {
+            let payments = simplifiedPayments(forGroup: groupId)
+            var simplifiedBalance: Double = 0
+            for payment in payments {
+                if payment.fromUserId == friendId && payment.toUserId == currentUser.id {
+                    simplifiedBalance += payment.amount
+                } else if payment.fromUserId == currentUser.id && payment.toUserId == friendId {
+                    simplifiedBalance -= payment.amount
+                }
+            }
+            return simplifiedBalance
+        }
+        
         let scopedExpenses = expenses.filter { $0.groupId == groupId }
         var balance: Double = 0
         
@@ -281,6 +278,12 @@ class RootInteractor: Interacting {
     
     func addGroup(_ group: ExpenseGroup) {
         groups.append(group)
+    }
+    
+    func toggleSimplifyDebts(for groupId: UUID) {
+        if let index = groups.firstIndex(where: { $0.id == groupId }) {
+            groups[index].simplifyDebts.toggle()
+        }
     }
     
     func addSettlement(_ settlement: Settlement) {

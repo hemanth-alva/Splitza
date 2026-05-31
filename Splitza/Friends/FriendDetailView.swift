@@ -105,41 +105,28 @@ struct FriendDetailView: View {
         }
     }
     
-    // MARK: - Expense History
+    // MARK: - Activity History
     
     private var expenseHistorySection: some View {
-        let friendExpenses = interactor.expenses(withFriend: friend.id)
+        let activities = interactor.friendActivity(withFriend: friend.id)
         
         return VStack(alignment: .leading, spacing: AppSpacing.md) {
-            SectionHeader(title: "Expense History")
+            SectionHeader(title: "History")
                 .padding(.horizontal, AppSpacing.lg)
             
-            if friendExpenses.isEmpty {
+            if activities.isEmpty {
                 EmptyStateView(
                     icon: "receipt",
-                    title: "No Expenses",
-                    subtitle: "No shared expenses with \(friend.name) yet"
+                    title: "No Activity",
+                    subtitle: "No shared activity with \(friend.name) yet"
                 )
                 .frame(height: 200)
             } else {
                 VStack(spacing: 0) {
-                    ForEach(friendExpenses) { expense in
-                        Button {
-                            interactor.requestEditExpense(expense)
-                        } label: {
-                            ExpenseRow(
-                                expense: expense,
-                                paidByUser: interactor.user(for: expense.paidById),
-                                currentUserId: interactor.currentUser.id,
-                                showsEditIndicator: true
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Edit expense")
-                        .padding(.horizontal, AppSpacing.lg)
-                        .padding(.vertical, AppSpacing.xs)
+                    ForEach(activities) { item in
+                        activityRow(for: item)
                         
-                        if expense.id != friendExpenses.last?.id {
+                        if item.id != activities.last?.id {
                             Divider()
                                 .padding(.leading, 64)
                         }
@@ -149,6 +136,37 @@ struct FriendDetailView: View {
                 .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
                 .padding(.horizontal, AppSpacing.lg)
             }
+        }
+    }
+    
+    @ViewBuilder
+    private func activityRow(for item: ActivityItem) -> some View {
+        switch item {
+        case .expense(let expense):
+            Button {
+                interactor.requestEditExpense(expense)
+            } label: {
+                ExpenseRow(
+                    expense: expense,
+                    paidByUser: interactor.user(for: expense.paidById),
+                    currentUserId: interactor.currentUser.id,
+                    showsEditIndicator: true
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Edit expense")
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.xs)
+            
+        case .settlement(let settlement):
+            SettlementRow(
+                settlement: settlement,
+                fromUser: interactor.user(for: settlement.fromUserId),
+                toUser: interactor.user(for: settlement.toUserId),
+                currentUserId: interactor.currentUser.id
+            )
+            .padding(.horizontal, AppSpacing.lg)
+            .padding(.vertical, AppSpacing.xs)
         }
     }
 }

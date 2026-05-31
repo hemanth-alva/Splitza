@@ -48,27 +48,73 @@ struct FriendsView: View {
                             }
                             .frame(height: 300)
                         } else {
-                            VStack(spacing: 0) {
-                                ForEach(interactor.friends) { friend in
-                                    NavigationLink {
-                                        FriendDetailView(interactor: interactor, friend: friend)
-                                    } label: {
-                                        FriendRow(
-                                            friend: friend,
-                                            balance: interactor.balance(with: friend.id)
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                    
-                                    if friend.id != interactor.friends.last?.id {
-                                        Divider()
-                                            .padding(.leading, 72)
+                            let unsettled = interactor.friends.filter { abs(interactor.balance(with: $0.id)) > 0.01 }
+                            let settled = interactor.friends.filter { abs(interactor.balance(with: $0.id)) <= 0.01 }
+                            
+                            // Unsettled friends
+                            if !unsettled.isEmpty {
+                                VStack(spacing: 0) {
+                                    ForEach(unsettled) { friend in
+                                        NavigationLink {
+                                            FriendDetailView(interactor: interactor, friend: friend)
+                                        } label: {
+                                            FriendRow(
+                                                friend: friend,
+                                                balance: interactor.balance(with: friend.id)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                        
+                                        if friend.id != unsettled.last?.id {
+                                            Divider()
+                                                .padding(.leading, 72)
+                                        }
                                     }
                                 }
+                                .background(AppColors.cardBackground)
+                                .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
+                                .padding(.horizontal, AppSpacing.lg)
                             }
-                            .background(AppColors.cardBackground)
-                            .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
-                            .padding(.horizontal, AppSpacing.lg)
+                            
+                            // Settled friends
+                            if !settled.isEmpty {
+                                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                                    HStack(spacing: AppSpacing.xs) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(AppColors.owedToYou)
+                                        Text("Settled Up")
+                                            .font(AppTypography.footnote)
+                                            .fontWeight(.semibold)
+                                            .foregroundStyle(AppColors.secondaryText)
+                                    }
+                                    .padding(.horizontal, AppSpacing.lg)
+                                    .padding(.top, AppSpacing.sm)
+                                    
+                                    VStack(spacing: 0) {
+                                        ForEach(settled) { friend in
+                                            NavigationLink {
+                                                FriendDetailView(interactor: interactor, friend: friend)
+                                            } label: {
+                                                FriendRow(
+                                                    friend: friend,
+                                                    balance: interactor.balance(with: friend.id)
+                                                )
+                                            }
+                                            .buttonStyle(.plain)
+                                            
+                                            if friend.id != settled.last?.id {
+                                                Divider()
+                                                    .padding(.leading, 72)
+                                            }
+                                        }
+                                    }
+                                    .background(AppColors.cardBackground)
+                                    .clipShape(RoundedRectangle(cornerRadius: AppRadius.md))
+                                    .padding(.horizontal, AppSpacing.lg)
+                                    .opacity(0.7)
+                                }
+                            }
                         }
                     }
                 }

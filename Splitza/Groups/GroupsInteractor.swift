@@ -37,6 +37,12 @@ class GroupsInteractor: Interacting {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+        
+        rootInteractor.$settlements
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Computed State
@@ -82,10 +88,44 @@ class GroupsInteractor: Interacting {
         rootInteractor.balanceWith(friendId: friendId, scopedToGroup: nil)
     }
     
+    // MARK: - Settlement Queries
+    
+    func settlements(forGroup groupId: UUID) -> [Settlement] {
+        rootInteractor.settlements.filter { $0.groupId == groupId }.sorted { $0.date > $1.date }
+    }
+    
+    func nonGroupSettlements() -> [Settlement] {
+        rootInteractor.settlements.filter { $0.groupId == nil }.sorted { $0.date > $1.date }
+    }
+    
+    /// Combined activity (expenses + settlements) for a group, sorted by date
+    func groupActivity(forGroup groupId: UUID) -> [ActivityItem] {
+        let expenseItems = rootInteractor.expenses(forGroup: groupId).map { ActivityItem.expense($0) }
+        let settlementItems = settlements(forGroup: groupId).map { ActivityItem.settlement($0) }
+        return (expenseItems + settlementItems).sorted { $0.date > $1.date }
+    }
+    
     // MARK: - Simplify Payments
+    
+    func isSimplifyEnabled(for groupId: UUID) -> Bool {
+        rootInteractor.group(for: groupId)?.simplifyDebts ?? true
+    }
+    
+    func toggleSimplifyDebts(for groupId: UUID) {
+        rootInteractor.toggleSimplifyDebts(for: groupId)
+    }
     
     func simplifiedPayments(forGroup groupId: UUID) -> [SimplifiedPayment] {
         rootInteractor.simplifiedPayments(forGroup: groupId)
+    }
+    
+    func rawDebts(forGroup groupId: UUID) -> [SimplifiedPayment] {
+        guard let group = rootInteractor.group(for: groupId) else { return [] }
+        return DebtSimplifier.rawDebts(
+            expenses: rootInteractor.expenses(forGroup: groupId),
+            settlements: settlements(forGroup: groupId),
+            memberIds: group.memberIds
+        )
     }
     
     /// Count of unique debtor-creditor pairs from raw expenses (before simplification)

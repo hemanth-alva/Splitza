@@ -32,6 +32,12 @@ class FriendsInteractor: Interacting {
                 self?.objectWillChange.send()
             }
             .store(in: &cancellables)
+        
+        rootInteractor.$settlements
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
     
     // MARK: - Computed State
@@ -48,6 +54,20 @@ class FriendsInteractor: Interacting {
     
     func expenses(withFriend friendId: UUID) -> [Expense] {
         rootInteractor.expenses(withFriend: friendId).sorted { $0.date > $1.date }
+    }
+    
+    func settlements(withFriend friendId: UUID) -> [Settlement] {
+        rootInteractor.settlements.filter {
+            ($0.fromUserId == currentUser.id && $0.toUserId == friendId) ||
+            ($0.fromUserId == friendId && $0.toUserId == currentUser.id)
+        }.sorted { $0.date > $1.date }
+    }
+    
+    /// Combined activity (expenses + settlements) with a friend, sorted by date
+    func friendActivity(withFriend friendId: UUID) -> [ActivityItem] {
+        let expenseItems = expenses(withFriend: friendId).map { ActivityItem.expense($0) }
+        let settlementItems = settlements(withFriend: friendId).map { ActivityItem.settlement($0) }
+        return (expenseItems + settlementItems).sorted { $0.date > $1.date }
     }
     
     func sharedGroups(with friendId: UUID) -> [ExpenseGroup] {

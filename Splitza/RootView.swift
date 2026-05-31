@@ -15,6 +15,9 @@ struct RootView: View {
     @ObservedObject var accountInteractor: AccountInteractor
     @AppStorage("isDarkMode") private var isDarkMode = false
     
+    /// Track the last valid tab to revert from the center spacer
+    @State private var lastValidTab: Int = 0
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView(selection: $interactor.selectedTab) {
@@ -30,7 +33,7 @@ struct RootView: View {
                     }
                     .tag(1)
                 
-                // Spacer tab for center button
+                // Spacer tab for center button — never navigated to
                 Color.clear
                     .tabItem {
                         Label("", systemImage: "")
@@ -50,6 +53,15 @@ struct RootView: View {
                     .tag(3)
             }
             .tint(AppColors.primary)
+            .onChange(of: interactor.selectedTab) { _, newTab in
+                if newTab == 99 {
+                    // Intercept center tab tap — open Add Expense and revert tab
+                    interactor.selectedTab = lastValidTab
+                    interactor.router?.routeToAddExpense(groupId: nil, friendId: nil)
+                } else {
+                    lastValidTab = newTab
+                }
+            }
             
             // Floating add button
             addButton
